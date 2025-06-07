@@ -6,3 +6,6 @@ Removing multiple sequential points from a Radiacode .rctrk track file. This cou
 
 ### What's a stuck measurement?
 Sometimes the Radiacode device disconnects from the app, but the app keeps the last count and dose rate as it logs points.
+
+### This tool contains AI-generated code
+The framework of this tool was generated largely with assistance from Google Gemini. My coding skills are rusty, but I can usually fumble my way around when I have some functional code I can reference.
