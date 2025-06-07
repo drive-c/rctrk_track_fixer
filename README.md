@@ -1,2 +1,8 @@
 # rctrk_track_fixer
-A tool made to quickly remove multiple sequential points from a Radiacode .rctrk track file.
+This is a tool made to quickly remove multiple sequential points from a Radiacode .rctrk track file. This tool can also identify potential stuck measurements that you can remove from your track.
+
+### What can I use this tool for?
+Removing multiple sequential points from a Radiacode .rctrk track file. This could be stuck measurements, measurement locations that you want to keep private, or measurements that have wildly inaccurate GPS data that you don't want to fix.
+
+### What's a stuck measurement?
+Sometimes the Radiacode device disconnects from the app, but the app keeps the last count and dose rate as it logs points.
