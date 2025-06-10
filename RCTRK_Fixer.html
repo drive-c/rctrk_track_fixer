@@ -1,0 +1,1078 @@
+<!--
+oh no how did this get in here i am not good with computer
+Version 0.3α
+Last edit 2025-06-09 by drive-c
+My programming skills are rusty, so most of this is made with assistance from Google Gemini AI.
+Licensed under Creative Commons Zero 1.0 Universal (https://creativecommons.org/publicdomain/zero/1.0/deed.en).
+Attribution is nice, but not required.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>.RCTRK Track Fixer</title>
+    <!-- Libraries used for this app -->
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    <!-- Leaflet Map Javascript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    <!-- noUiSlider for time slider CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css" 
+          xintegrity="sha512-qveKnGrvOChbSzAdtSs8p69eoLegNoHPWzf9zZN8CnYEqwX_U7EpOd3KyNRaPNH2wc8MTo28hP0c9YCT2lXP0Q==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- noUiSlider for time slider Javascript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js" 
+            xintegrity="sha512-UOJe4paV6hYWBnS0c9GnIRH8PLm2nFK2goW5A09i0CLfx6SWgPChL4Tcn1tYptgXRYwwI1Jqd_eOQ3Z_XJqY4g==" 
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+        body { 
+        /* Very simple body. Will consider dark/light mode toggle. */
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background-color: #f0f0f0; 
+            color: #333;
+        }
+
+        #map { 
+            height: 450px;
+            width: 100%; 
+            min-width: 400px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px; 
+        }
+
+        /* Container to give defined margins. May change for mobile browsers. */
+        .container { 
+            max-width: 1200px; 
+            margin: 10px auto; 
+            padding: 15px; 
+            background-color: #fff;
+            border: 1px solid #ddd;
+        }
+
+        .control-group { 
+            padding: 10px; 
+            margin-bottom:15px;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+        }
+        
+        #timeControlsGroup {
+            display: none; /* Hidden until valid file is loaded */
+        }
+
+
+        label { /* Used for time slider. Probably need to rename */
+            display: block;
+            /* margin-bottom: 5px; */
+            font-weight: bold; 
+        }
+
+        /* File picker and upload button */
+        input[type="file"], button, a.button-style {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        input[type="file"] { 
+            background-color: #fff; 
+            width: 20%; /* 20% fixes sizing weirdness under different window sizes */
+            box-sizing: border-box;
+        }
+        
+        /* Wonder if I should just define each button individually... */
+        button, a.button-style {
+            background-color: #e0e0e0;
+            color: #333;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        /* Settings for a disabled button, which is basically only the upload button. */
+        button:disabled, a.button-style:disabled { 
+            background-color: #f0f0f0; 
+            color: #aaa;
+            cursor: not-allowed; 
+        }
+        
+        /* Might be leftovers from previous code version... */
+        .time-display { 
+            font-size: 0.9em; 
+            margin-top: 5px; 
+            text-align: center;
+            color: #555;
+        }
+        
+        /* Button design and colors */
+        #uploadButton {
+        	background-color: #cceeff;
+        	border-color: #aaccff;
+        	margin-left: 10px;
+        	}
+        #exciseButton {
+        	background-color: #ffdddd;
+        	border-color: #ffbaba;
+        	}
+        #downloadLink {
+        	background-color: #ddffdd;
+        	border-color: #baffba;
+            }
+        #addRangeButton {
+        	background-color: #ddeeff;
+        	border-color: #baddff;
+        	font-size: 0.8em;
+        	padding: 4px 8px;
+        	}
+        /* Remove range buttons may be changed to icons later. */
+        .removeRangeButton { 
+            background-color: #ffcccc; 
+            border-color: #ffaaaa; 
+            color: #c00;
+            font-size: 0.9em; 
+            padding: 2px 6px; 
+            margin-left: 10px;
+            border-radius: 50%; 
+            line-height: 1;
+        }
+
+        /* This might look better as toasts, but I am having a hard time getting toasts to work right... */
+        /* Also not sure about the spacing for the text. There seems to be heavier buffer on the bottom. */
+        #messageArea {
+            margin: 10px 0 15px 0; /* Doesn't appear to be the source of the spacing... */
+            padding: 10px; 
+            border-radius: 4px; 
+            text-align: center;
+            border: 1px solid transparent;
+            min-height: 1.5em; 
+            font-weight: bold;
+            display: none; /* Hidden until a message appears. */
+        }
+        #messageArea.visible {
+            display: block; /* Made visible by JS when there's a message */
+        }
+        /* Message colors defined here. Green for success, red for error, blue for information. */
+        .message-success { border-color: #5cb85c; background-color: #dff0d8; color: #3c763d; }
+        .message-error   { border-color: #d9534f; background-color: #f2dede; color: #a94442; }
+        .message-info    { border-color: #5bc0de; background-color: #d9edf7; color: #31708f; }
+
+        /* Had considered side by side, but opted for hiding on stats container. */
+        .stats-about-container {
+            display: flex;
+            flex-direction: column; /* Originally thought side by side for about and stats, but hiding data seems to be better */
+            gap: 15px; 
+            margin-top: 15px;
+        }
+
+        /* For now, same design for stats and about */
+        #statsArea, #aboutArea {
+             padding: 10px; 
+             font-size: 0.9em;
+             background-color: #f9f9f9;
+             border: 1px solid #eee;
+             max-width: 100%; /* If not set, falls off container. */
+        }
+                
+        /* Hiding only stats here until a file is loaded; About section stays visible. */
+        #statsArea {
+            display: none;
+        }
+        
+        /* Probably should just define for all sections... */
+        #statsArea h3, #aboutArea h3 { 
+            font-size: 1.1em;
+            font-weight: bold; 
+            margin-top: 0; 
+            margin-bottom: 8px; 
+        }
+        /* Split to different lines and sizes for an appealing page title. */
+        .title-container {
+            display: flex;
+            align-items: center;
+            gap: 15px; 
+            margin-bottom: 20px;
+        }
+        /* Sizing icon so it closely matches the title. */
+        .page-icon { 
+            width: 58px; 
+            height: 58px;
+        }
+
+
+        /* noUiSlider custom styles - minimal */
+        /* */
+        .noUi-target { 
+            background: #ddd;
+            border: 1px solid #bbb;
+            height: 14px; 
+            border-radius: 7px; 
+            position: relative; 
+        }
+        /* Center grab-able portions */
+        .noUi-connect { 
+            background: #89cff0; 
+            border-radius: 7px;
+            cursor: grab;
+        }
+        /* Considering better handles for mobile */
+        .noUi-handle {
+            background: #fff;
+            border: 1px solid #aaa;
+            border-radius: 2px; 
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            width: 8px !important;
+            height: 24px !important; 
+            right: -4px !important;
+            top: -5px !important;
+            cursor: ew-resize; 
+        }
+        .noUi-handle::before,
+        .noUi-handle::after {
+            display: none !important; 
+        }
+        /* Focus highlighting for handles */
+        .noUi-handle:focus { outline: 2px solid hsla(220, 100%, 50%, 80%);}
+        /* Todo: Make slider move by minutes instead of seconds with keys. */
+        
+        /* Any stuck points will be highlighted on the slider here */
+        .stuck-segment-overlay { 
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 5px; 
+            pointer-events: none;
+        }
+        /* Stuck segment on slider size and shape defined here */
+        .stuck-segment {
+            position: absolute; height: 100%;
+            background-color: red; 
+            opacity: 0.4; 
+            border-radius: 0; 
+        }
+        /* Additional sliders need spacing for easier touch control. */
+        .slider-instance-container { 
+            margin-bottom: 10px; 
+            padding-bottom: 10px; 
+            border-bottom: 1px solid #eee; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; /* gap to right side */
+        }
+        .slider-instance-container:last-child { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+        .slider-wrapper { flex-grow: 1; } 
+
+    </style>
+</head>
+<body> 
+    <div class="container">
+        <div class="title-container"> 
+            <!-- Page Icon as SVG. Might be simplified. -->
+            <svg class="page-icon" id="svg3036" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 457.4 652.7">
+              <defs>
+                <style>
+                  .st0, .st1 {
+                    fill: #fecf33; 
+                  }
+                  .st2, .st1 {
+                    fill-rule: evenodd;
+                  }
+                </style>
+              </defs>
+              <g>
+                <path class="st2" d="M0,457.5h457.4v195.2H0v-195.2h0Z"/>
+                <path class="st1" d="M0,0h457.4v457.4H0V0h0Z"/>
+                <path class="st2" d="M228.7,32.7c108,0,196.1,88.1,196.1,196s-88.1,196-196.1,196S32.6,336.7,32.6,228.7,120.7,32.7,228.7,32.7"/>
+                <path class="st1" d="M317.9,74.7l-89.3,154.1-89.2-154.1h178.5Z"/>
+                <path class="st1" d="M228.6,228.9l-89.3,154.1L50.1,228.9h178.5Z"/>
+                <path class="st1" d="M407.3,228.9l-89.2,154.1-89.2-154.1h178.5Z"/>
+              </g>
+              <g>
+                <path class="st0" d="M17.5,526.8v-9.5h10.2v9.5h-10.2Z"/>
+                <path class="st0" d="M31.5,471.1h15.4c2.4,0,4.3.6,5.7,1.8,1.3,1.2,2.2,3,2.7,5.2.5,2.2.7,5.1.7,8.5s-.4,5.6-1.1,7.4c-.7,1.8-2,3-3.8,3.7,1.5.3,2.6,1.2,3.3,2.5.7,1.3,1,3.2,1,5.4v21.1h-9.9v-21.8c0-1.6-.3-2.5-.8-3-.5-.4-1.5-.6-3-.6v25.4h-10.1v-55.7ZM44.1,491.7c1.4,0,2.1-1.7,2.1-5.1s0-2.6-.2-3.3c-.1-.7-.3-1.2-.6-1.5-.3-.3-.8-.4-1.3-.4h-2.3v10.3h2.4Z"/>
+                <path class="st0" d="M62.2,523.5c-2.2-2.5-3.3-6-3.3-10.5v-25.7c0-5.5,1-9.7,3-12.5,2-2.8,5.1-4.2,9.3-4.2s6.7,1.1,8.9,3.4c2.3,2.2,3.4,5.5,3.4,9.7v9.6h-10v-8.2c0-1.6-.2-2.7-.5-3.3-.4-.6-1-.9-1.8-.9s-1.5.3-1.8,1c-.3.7-.5,1.7-.5,3v27.9c0,1.5.2,2.5.6,3.2s1,1,1.8,1c1.6,0,2.3-1.4,2.3-4.2v-10h10.1v10.5c0,9.3-4.2,14-12.7,14s-6.6-1.3-8.8-3.8Z"/>
+                <path class="st0" d="M91.3,526.8v-45h-5.9v-10.7h21.9v10.7h-5.9v45h-10Z"/>
+                <path class="st0" d="M110.1,471.1h15.4c2.4,0,4.3.6,5.7,1.8,1.3,1.2,2.2,3,2.7,5.2.5,2.2.7,5.1.7,8.5s-.4,5.6-1.1,7.4c-.7,1.8-2,3-3.8,3.7,1.5.3,2.6,1.2,3.3,2.5.7,1.3,1,3.2,1,5.4v21.1h-9.9v-21.8c0-1.6-.3-2.5-.8-3-.5-.4-1.5-.6-3-.6v25.4h-10.1v-55.7ZM122.7,491.7c1.4,0,2.1-1.7,2.1-5.1s0-2.6-.2-3.3c-.1-.7-.3-1.2-.6-1.5-.3-.3-.8-.4-1.3-.4h-2.3v10.3h2.4Z"/>
+                <path class="st0" d="M137.9,526.8v-55.7h9.9v22.3l4.7-22.3h10.1l-5.6,25.5,6.8,30.2h-10.4l-5.5-27v27h-10Z"/>
+                <path class="st0" d="M183.4,526.8v-45h-5.9v-10.7h21.9v10.7h-5.9v45h-10Z"/>
+                <path class="st0" d="M202.2,471.1h15.4c2.4,0,4.3.6,5.7,1.8s2.2,3,2.7,5.2c.5,2.2.7,5.1.7,8.5s-.4,5.6-1.1,7.4c-.7,1.8-2,3-3.8,3.7,1.5.3,2.6,1.2,3.3,2.5.7,1.3,1,3.2,1,5.4v21.1h-9.9v-21.8c0-1.6-.3-2.5-.8-3-.5-.4-1.5-.6-3-.6v25.4h-10.1v-55.7ZM214.8,491.7c1.4,0,2.1-1.7,2.1-5.1s0-2.6-.2-3.3c-.1-.7-.3-1.2-.6-1.5-.3-.3-.8-.4-1.3-.4h-2.3v10.3h2.4Z"/>
+                <path class="st0" d="M228.6,526.8l4.8-55.7h17l4.8,55.7h-9.5l-.7-9h-6.1l-.6,9h-9.7ZM239.7,508.9h4.5l-2.2-28.3h-.5l-1.9,28.3Z"/>
+                <path class="st0" d="M261.2,523.5c-2.2-2.5-3.3-6-3.3-10.5v-25.7c0-5.5,1-9.7,3-12.5,2-2.8,5.1-4.2,9.3-4.2s6.7,1.1,8.9,3.4c2.3,2.2,3.4,5.5,3.4,9.7v9.6h-10v-8.2c0-1.6-.2-2.7-.5-3.3-.4-.6-1-.9-1.8-.9s-1.5.3-1.8,1c-.3.7-.5,1.7-.5,3v27.9c0,1.5.2,2.5.6,3.2s1,1,1.8,1c1.6,0,2.3-1.4,2.3-4.2v-10h10.1v10.5c0,9.3-4.2,14-12.7,14s-6.6-1.3-8.8-3.8Z"/>
+                <path class="st0" d="M285.9,526.8v-55.7h9.9v22.3l4.7-22.3h10.1l-5.6,25.5,6.8,30.2h-10.4l-5.5-27v27h-10Z"/>
+                <path class="st0" d="M327.1,526.8v-55.7h20.1v10.8h-10v8.9h9.4v10.7h-9.4v25.3h-10.1Z"/>
+                <path class="st0" d="M349.9,526.8v-55.7h9.7v55.7h-9.7Z"/>
+                <path class="st0" d="M362.1,526.8l5.4-29.6-4.3-26.2h9.8l2.6,19.2,2.3-19.2h9.9l-4.3,26.2,5.4,29.6h-10.1l-3.1-21.8-3.2,21.8h-10.2Z"/>
+                <path class="st0" d="M391.8,526.8v-55.7h20.1v10.8h-9.9v10.8h9.4v10.5h-9.4v12.8h10.5v10.8h-20.7Z"/>
+                <path class="st0" d="M415.9,471.1h15.4c2.4,0,4.3.6,5.7,1.8s2.2,3,2.7,5.2c.5,2.2.7,5.1.7,8.5s-.4,5.6-1.1,7.4c-.7,1.8-2,3-3.8,3.7,1.5.3,2.6,1.2,3.3,2.5.7,1.3,1,3.2,1,5.4v21.1h-9.9v-21.8c0-1.6-.3-2.5-.8-3-.5-.4-1.5-.6-3-.6v25.4h-10.1v-55.7ZM428.5,491.7c1.4,0,2.1-1.7,2.1-5.1s0-2.6-.2-3.3c-.1-.7-.3-1.2-.6-1.5-.3-.3-.8-.4-1.3-.4h-2.3v10.3h2.4Z"/>
+              </g>
+            </svg>
+            <div>
+                <!-- Title style originally defined in CSS, but literally only used here. -->
+                <h1 style="font-size: 1.8em; font-weight: bold; margin: 0; line-height: 1.1;">.RCTRK</h1>
+                <h2 style="font-size: 1.4em; font-weight: normal; margin: 0; line-height: 1.1;">Track Fixer</h2>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="fileInput">Upload .rctrk File:</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+            	<!--
+            	So, iOS really, really doesn't like me defining .rctrk as a file type.
+            	I think allowing any file type should be fine, so this section could be simplified.
+            	-->
+                <input type="file" id="fileInput" accept="*/*,.json,.txt,.rctrk,application/json,text/plain" style="flex-grow: 1;">
+                <!--
+                Since this is all self-contained, the upload confirmation may not be needed,
+                but this feels better.
+                -->
+                <button id="uploadButton" disabled>Upload Selected File</button>
+            </div>
+            <!--
+            So, the way this was originally coded, selectedFileName is required for some
+            of the checks that are done later in the code. Todo: Rewrite code to not need it. -->
+        	<div id="selectedFileName" style="font-size: 0;"></div>
+        </div>
+        
+        <!-- Message area placed here, but nothing happens until later in the code. -->
+		<div id="messageArea"></div>
+
+        <!-- Placement of the Leaflet map. -->
+        <div id="map"></div>
+
+        <!-- Time slider controls -->
+        <div class="control-group" id="timeControlsGroup">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="margin-bottom:0;">Select time ranges to remove:</label>
+                <!-- May change this to an icon in the future. -->
+                <button id="addRangeButton" style="margin-left: auto; margin-bottom: 4px;">+ Add Range</button>
+            </div>
+            <div id="timeSlidersContainer">
+                <!-- Sliders will be dynamically added here -->
+            </div>
+        </div>
+        
+        <!-- Where Excise and Download buttons show up. -->
+        <div id="actionButtonsContainer" style="display: none; flex-direction: column; align-items: center; gap: 10px; margin: 20px 0;">
+            <!--
+            Todo:
+            Should I pick a different word?
+            Excise is exactly what I mean, but uncertain if that is clear to everyone.
+            -->
+            <button id="exciseButton" style="width: auto;">Excise Selected Ranges</button>
+            <a id="downloadLink" class="button-style" style="width: auto; display: none;">Download Modified File</a>
+        </div>
+
+        <!-- Stats and about container -->
+        <div class="stats-about-container">
+            <div id="statsArea">
+                <h3>Data Stats</h3> 
+                <p>Original measurements: <span id="originalCount">0</span></p>
+                <p>Measurements currently displayed: <span id="newCount">0</span></p>
+                <p>Measurements in active excision ranges: <span id="inExciseRangeCount">0</span></p>
+                <p>Measurements excised in last operation: <span id="removedCount">0</span></p>
+                <p>Flagged stuck measurements (in current view): <span id="flaggedCount">0</span></p>
+            </div>
+            <div id="aboutArea">
+                <h3>About</h3>
+                <p>This is a tool to quickly remove multiple sequential points from a Radiacode .rctrk track.</p>
+                <p>Sometimes the Radiacode device disconnects from the app, but the app keeps the last count as it logs points. This tool can also quickly identify potential stuck measurements.</p>
+                <p>Be sure to inspect the modified track in the Radiacode app before uploading it to <a href=https://map.radiaverse.com/>RadiaVerse</a>.</p>
+                <h3>Version 0.3α</h3>
+                <p>Last edit 2025-06-09</p>
+                <p>This tool is mostly AI-generated (I suck at coding) - Help improve the app on <a href=https://github.com/drive-c/rctrk_track_fixer/>Github</a>.</p>
+                <p>This tool is user-made and is not affiliated with <a href=https://www.radiacode.com/>Radiacode Ltd.</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global variables ---
+        let map;
+        let originalData = null;    
+        let processedData = null;  
+        let leafletMarkers = [];
+        const MIN_STUCK_LENGTH = 10; // This could be customizable later on, but 10 is a good number.
+        window.minCr = 0; // Todo: change variable to minCountRate
+        window.maxCr = 1; // Todo: change variable to maxCountRate
+        let fullDataMinTimestamp = 0;
+        let fullDataMaxTimestamp = 1;
+        let sliderInstances = []; 
+        let nextSliderId = 0;
+        let selectedFile = null; 
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // RadiaVerse limits to 10MB, so we do the same.
+        const ALLOWED_EXTENSIONS = ['.rctrk', '.txt', '.json']; // Since we can't be restrictive for .rctrk on iOS, we check later on for .txt, .json, and .rctrk elsewhere.
+
+
+        // --- DOM Elements ---
+        const fileInput = document.getElementById('fileInput');
+        const uploadButton = document.getElementById('uploadButton');
+        const selectedFileNameDisplay = document.getElementById('selectedFileName'); // Code currently has this as 0pt font. Need to fix.
+        const timeSlidersContainer = document.getElementById('timeSlidersContainer');
+        const timeControlsGroup = document.getElementById('timeControlsGroup'); 
+        const addRangeButton = document.getElementById('addRangeButton');
+        const actionButtonsContainer = document.getElementById('actionButtonsContainer');
+        const exciseButton = document.getElementById('exciseButton');
+        const downloadLink = document.getElementById('downloadLink');
+        const messageArea = document.getElementById('messageArea');
+        const originalCountEl = document.getElementById('originalCount');
+        const newCountEl = document.getElementById('newCount');
+        const inExciseRangeCountEl = document.getElementById('inExciseRangeCount');
+        const removedCountEl = document.getElementById('removedCount');
+        const flaggedCountEl = document.getElementById('flaggedCount');
+        
+        // --- Initialize Map ---
+        window.initMap = function() { 
+            if (map) map.remove();
+            map = L.map('map').setView([34.69983, 33.07571], 15); // Centered on Radiacode headquarters
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+        
+        // --- Helper Functions ---
+        // Setting time from file for time slider
+        window.formatTimestampForDisplay = function(timestamp) {
+            if (timestamp == null || isNaN(timestamp)) return "N/A";
+            return new Date(timestamp * 1000).toLocaleString();
+        }
+
+        // Setting max and min counts to red and green gradient for points on the map.
+        window.getMeasurementColor = function(countRate) {
+            if (countRate == null || window.minCr == null || window.maxCr == null || window.minCr >= window.maxCr) {
+                return '#808080';
+            }
+            const normalized = Math.min(Math.max((countRate - window.minCr) / (window.maxCr - window.minCr), 0), 1);
+            const hue = 120 * (1 - normalized); 
+            return `hsl(${hue}, 100%, 50%)`;
+        }
+
+        // Checking for stuck data by comparing sequential dose rates and counts.
+        // It's not unusual to get the same dose rates or counts individually, but 10x in a row together is almost always a glitch.
+        window.flagStuckData = function(measurements, minLength = MIN_STUCK_LENGTH) {
+            if (!measurements || measurements.length < minLength) return measurements.map(m => ({...m, isFlagged: false}));
+            const sortedMeasurements = [...measurements].sort((a, b) => a.date - b.date);
+            for (let i = 0; i < sortedMeasurements.length; i++) sortedMeasurements[i].isFlagged = false;
+            let i = 0;
+            while (i < sortedMeasurements.length) {
+                let j = i + 1;
+                while (j < sortedMeasurements.length &&
+                       sortedMeasurements[j].countRate === sortedMeasurements[i].countRate &&
+                       sortedMeasurements[j].doseRate === sortedMeasurements[i].doseRate) {
+                    j++;
+                }
+                if (j - i >= minLength) {
+                    for (let k = i; k < j; k++) sortedMeasurements[k].isFlagged = true;
+                }
+                i = j;
+            }
+            return sortedMeasurements;
+        }
+        
+        // Drawing stuck measurements on slider for easier selection.
+        window.drawStuckMeasurementHighlightsOnSlider = function(sliderBaseElement, sliderMinTime, sliderMaxTime) {
+            let overlay = sliderBaseElement.querySelector('.stuck-segment-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'stuck-segment-overlay';
+                sliderBaseElement.appendChild(overlay);
+            }
+            overlay.innerHTML = ''; 
+
+            if (!originalData || !originalData.measurements || originalData.measurements.length === 0) return;
+            
+            // Setting time range for slider
+            const totalTimeRangeOnSlider = sliderMaxTime - sliderMinTime;
+            if (totalTimeRangeOnSlider <= 0) return;
+
+            // Math for time slider to show dates and time
+            let i = 0;
+            while (i < originalData.measurements.length) {
+                if (originalData.measurements[i].isFlagged) {
+                    let segmentStartIndex = i;
+                    while (i < originalData.measurements.length && originalData.measurements[i].isFlagged) i++;
+                    let segmentEndIndex = i - 1;
+                    
+                    const segmentStartTime = originalData.measurements[segmentStartIndex].date;
+                    const segmentEndTime = originalData.measurements[segmentEndIndex].date;
+
+                    if (segmentEndTime >= sliderMinTime && segmentStartTime <= sliderMaxTime) {
+                        const displayStartTime = Math.max(segmentStartTime, sliderMinTime);
+                        const displayEndTime = Math.min(segmentEndTime, sliderMaxTime);
+
+                        if (displayEndTime > displayStartTime) {
+                            const leftPercent = ((displayStartTime - sliderMinTime) / totalTimeRangeOnSlider) * 100;
+                            const widthPercent = ((displayEndTime - displayStartTime) / totalTimeRangeOnSlider) * 100;
+
+                            const highlightDiv = document.createElement('div');
+                            highlightDiv.className = 'stuck-segment';
+                            highlightDiv.style.left = `${Math.max(0, Math.min(100, leftPercent))}%`;
+                            highlightDiv.style.width = `${Math.max(0, Math.min(100 - leftPercent, widthPercent))}%`;
+                            highlightDiv.title = `Stuck data: ${formatTimestampForDisplay(segmentStartTime)} - ${formatTimestampForDisplay(segmentEndTime)}`;
+                            overlay.appendChild(highlightDiv);
+                        }
+                    }
+                } else { i++; }
+            }
+        }
+
+        // --- File Handling ---
+        window.handleFileSelection = function(event) { 
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                selectedFileNameDisplay.textContent = `Selected: ${file.name}`; // Checking hidden field below file picker
+                uploadButton.disabled = false; // Enable the upload button
+                showMessage("File selected. Click 'Upload Selected File' to process.", 'info'); // Shows prompt to press upload.
+                exciseButton.disabled = true; // Disables the excise button, pending successful upload
+                actionButtonsContainer.style.display = 'none'; // Shows the excise button container
+                downloadLink.style.display = 'none';
+                // Clears leaflet markers from map.
+                // Todo: Probably should put this logic somewhere else, but is unambiguous.
+                if (map && leafletMarkers) {
+                    leafletMarkers.forEach(m => m.remove());
+                    leafletMarkers = [];
+                }
+                // Clears the time sliders, if added.
+                sliderInstances.forEach(inst => {
+                    if (inst && inst.slider && typeof inst.slider.destroy === 'function') {
+                        inst.slider.destroy();
+                    }
+                });
+                sliderInstances = [];
+                timeSlidersContainer.innerHTML = ''; 
+                if(timeControlsGroup) timeControlsGroup.style.display = 'none'; 
+                // Hide data stats when empty.
+                if(statsArea) statsArea.style.display = 'none';
+                updateStats(0,0,0,0,0); 
+            } else {
+                selectedFile = null; // Default file state.
+                selectedFileNameDisplay.textContent = 'No file selected.';
+                uploadButton.disabled = true; // Disables upload button until file is selected
+                if(timeControlsGroup) timeControlsGroup.style.display = 'none'; // Cleanup to hide time slider
+                if(actionButtonsContainer) actionButtonsContainer.style.display = 'none'; // Cleanup to hide action buttons
+            }
+        }
+
+        // Actually processing the file.
+        // We've split the file selection and upload as a sort of validation.
+        // While the code is designed to live locally, it feels better to upload after selection.
+        window.processAndLoadFile = function() {
+            // Error for null file
+            if (!selectedFile) {
+                showMessage('No file selected to upload.', 'error');
+                return;
+            }
+
+            // Filename parsing and check
+            const fileName = selectedFile.name.toLowerCase(); // Setting filename to lowercase
+            const fileExtension = fileName.substring(fileName.lastIndexOf('.')); // Checks after last . in filename
+            // Checking allowed extensions since restricting to .rctrk, .txt, or .json doesn't work right with iOS.
+            if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
+                showMessage(`Invalid file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`, 'error'); // Show error if not allowed extension.
+                // Resetting file values after invalid file upload attempt.
+                fileInput.value = '';
+                selectedFile = null;
+                selectedFileNameDisplay.textContent = 'No file selected.';
+                uploadButton.disabled = true;
+                return;
+            }
+
+            // Checking file size
+            // Not certain if this is needed, but good practice to let user know that the file is too big for RadiaVerse.
+            if (selectedFile.size > MAX_FILE_SIZE) {
+                showMessage(`File too large. Max: ${MAX_FILE_SIZE / (1024 * 1024)}MB.`, 'error');
+                // Resetting file values after invalid file upload attempt.
+                // Todo: Make this file selection resetter a function.
+                fileInput.value = '';
+                selectedFile = null;
+                selectedFileNameDisplay.textContent = 'No file selected.';
+                uploadButton.disabled = true;
+                return;
+            }
+
+            // File data parsing.
+            // Currently, .rctrk files are .json, which is why we allow .json and .txt
+            // for allowed file types. RadiaVerse also allows .csv, but we don't handle this
+            // since Radiacode app only exports in .rctrk.
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let parsedData = JSON.parse(e.target.result);
+                    if (!parsedData.markers || !Array.isArray(parsedData.markers)) {
+                        throw new Error("File must contain a 'measurements' (markers) array."); // Error if JSON doesn't match
+                    }
+                    
+                    // I actually don't know why we move from markers to measurements.
+                    // I changed the wording to match Radiacode's app, but maybe I preferred
+                    // it being set a different way before...
+                    parsedData.measurements = parsedData.markers;
+                    delete parsedData.markers;
+
+                    // Stepping through each count rate to figure out the min and max values.
+                    window.minCr = Infinity; window.maxCr = -Infinity;
+                    if (parsedData.measurements.length > 0) {
+                        parsedData.measurements.forEach(m => {
+                            if (m.countRate != null) {
+                                if (m.countRate < window.minCr) window.minCr = m.countRate;
+                                if (m.countRate > window.maxCr) window.maxCr = m.countRate;
+                            }
+                        });
+                         // Checking for edge cases, like single value in file or if the value was never updated.
+                         if (window.minCr === Infinity || window.minCr === window.maxCr) { 
+                             window.minCr = (window.minCr === Infinity) ? 0 : window.minCr;
+                             window.maxCr = window.minCr + 0.1; 
+                        }
+                    } else { window.minCr = 0; window.maxCr = 1; } // Not sure if setting to 0 and 1 is helpful...
+                    
+                    originalData = {...parsedData, measurements: flagStuckData(parsedData.measurements)};
+                    processedData = JSON.parse(JSON.stringify(originalData)); 
+
+                    // Set time measurements from seconds to human-readable date and time
+                    fullDataMinTimestamp = originalData.measurements.length > 0 ? originalData.measurements[0].date : Math.floor(Date.now() / 1000) - 3600;
+                    fullDataMaxTimestamp = originalData.measurements.length > 0 ? originalData.measurements[originalData.measurements.length - 1].date : Math.floor(Date.now() / 1000);
+                    
+                    // Reset existing sliders - Todo: make into function that can be called elsewhere
+                    timeSlidersContainer.innerHTML = '';
+                    sliderInstances.forEach(inst => {
+                        if (inst && inst.slider && typeof inst.slider.destroy === 'function') {
+                           inst.slider.destroy();
+                        }
+                    });
+                    
+                    // Create the array for the time sliders
+                    sliderInstances = [];
+                    nextSliderId = 0;
+                    if(timeControlsGroup) timeControlsGroup.style.display = 'block'; 
+                    if(actionButtonsContainer) actionButtonsContainer.style.display = 'flex';
+                    if(statsArea) statsArea.style.display = 'block'; // Show stats
+                    addNewTimeRangeSlider(); 
+                    
+                    // Display the tracks on the map
+                    displayMeasurements(originalData.measurements); 
+                    updateMapHighlighting(); 
+
+                    // Successfully processed the file, so show message and enable excise button
+                    showMessage(`File "${selectedFile.name}" processed. ${originalData.measurements.length} measurements.`, 'success');
+                    updateStatsOnLoad();
+                    exciseButton.disabled = false;
+                    downloadLink.style.display = 'none';
+                }
+                // Error catching for bad file.
+                catch (error) {
+                    console.error("Error processing file content:", error);
+                    showMessage(`Error processing file: ${error.message}`, 'error');
+                    
+                    // Todo: Make clearing the map and buttons a function instead of having this written multiple times
+                    originalData = null; processedData = null; 
+                    exciseButton.disabled = true; 
+                    if(leafletMarkers) leafletMarkers.forEach(m => m.remove());
+                    leafletMarkers = [];
+                    sliderInstances.forEach(inst => {
+                        if (inst && inst.slider && typeof inst.slider.destroy === 'function') {
+                           inst.slider.destroy();
+                        }
+                    });
+                    // Todo: And a function for clearing time sliders and stats.
+                    sliderInstances = [];
+                    timeSlidersContainer.innerHTML = '';
+                    if(timeControlsGroup) timeControlsGroup.style.display = 'none';
+                    if(actionButtonsContainer) actionButtonsContainer.style.display = 'none'; 
+                    updateStats(0,0,0,0,0); // Should make this part of the stat reset function.
+                }
+            };
+            reader.onerror = function() { 
+            	// Todo: Again, make clearing map and buttons a function
+                showMessage('Error reading file.', 'error'); 
+                exciseButton.disabled = true;
+                fileInput.value = '';
+                selectedFile = null;
+                selectedFileNameDisplay.textContent = 'No file selected.';
+                uploadButton.disabled = true;
+            };
+            reader.readAsText(selectedFile);
+        }
+
+        // Adding new time sliders
+        window.addNewTimeRangeSlider = function() { 
+        	
+        	// I think this is redundant since we hide the sliders when no data is available.
+        	// Todo: Remove if unnecessary.
+            if (!originalData && sliderInstances.length === 0) { 
+                showMessage("Please load a file first.", "info");
+                return;
+            }
+            // Variables for each slider as they are created.
+            const sliderId = `timeRangeSlider-${nextSliderId}`;
+            const startDisplayId = `startTimeDisplay-${nextSliderId}`;
+            const endDisplayId = `endTimeDisplay-${nextSliderId}`;
+            nextSliderId++;
+			
+            // Container each slider
+            const sliderInstanceContainer = document.createElement('div');
+            sliderInstanceContainer.className = 'slider-instance-container';
+            sliderInstanceContainer.id = `sliderContainer-${sliderId}`;
+			
+            // Wrapper for all the sliders
+            const sliderWrapper = document.createElement('div');
+            sliderWrapper.className = 'slider-wrapper';
+
+            // Add the slider handles?
+            const sliderElement = document.createElement('div');
+            sliderElement.id = sliderId;
+            sliderElement.className = 'mt-2 mb-1'; 
+
+            // Slider design
+            const displayContainer = document.createElement('div');
+            displayContainer.style.display = 'flex'; 
+            displayContainer.style.justifyContent = 'space-between';
+            displayContainer.style.fontSize = '0.9em';
+            displayContainer.style.color = '#555';
+            displayContainer.style.padding = '0 5px';
+
+            // Setting text for set slider times
+            const startSpan = document.createElement('span');
+            startSpan.id = startDisplayId; startSpan.textContent = 'N/A';
+            const endSpan = document.createElement('span');
+            endSpan.id = endDisplayId; endSpan.textContent = 'N/A';
+            displayContainer.appendChild(startSpan);
+            displayContainer.appendChild(endSpan);
+            
+            // Adding additional sliders to end
+            sliderWrapper.appendChild(sliderElement);
+            sliderWrapper.appendChild(displayContainer);
+            sliderInstanceContainer.appendChild(sliderWrapper);
+
+            // Setting the remove button
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'removeRangeButton';
+            removeBtn.innerHTML = `X`; 
+            removeBtn.title = "Remove this range";
+            removeBtn.onclick = function() {
+                const instanceIndex = sliderInstances.findIndex(inst => inst.id === sliderId);
+                if (instanceIndex > -1) {
+                    sliderInstances[instanceIndex].slider.destroy();
+                    sliderInstances.splice(instanceIndex, 1);
+                }
+                sliderInstanceContainer.remove();
+                updateMapHighlighting();
+                updateInExciseRangeStat();
+                
+                if (sliderInstances.length === 1 && sliderInstances[0].removeButton) {
+                    sliderInstances[0].removeButton.style.display = 'none';
+                }
+            };
+            
+            sliderInstanceContainer.appendChild(removeBtn); 
+            
+            timeSlidersContainer.appendChild(sliderInstanceContainer);
+
+            // Setting the range for the timestamps
+            const minRange = originalData ? fullDataMinTimestamp : 0;
+            const maxRange = originalData ? fullDataMaxTimestamp : Date.now()/1000;
+            
+            let initialStart = minRange;
+            let initialEnd = maxRange;
+            if (originalData && (maxRange - minRange > 0)) { // Another check for good data.
+                const totalRange = maxRange - minRange; // Get the range from maxRange and minRange
+                const twentyPercent = totalRange * 0.20; // default range for the slider
+                const fortyPercentPoint = minRange + totalRange * 0.40; // Sets to 40% from the left
+                
+                // Setting the range for 20% width in the middle.
+                // If we were to set this to a different percentage or put it off-center,
+                // We'd probably rewrite this whole part.
+                initialStart = fortyPercentPoint;
+                initialEnd = fortyPercentPoint + twentyPercent;
+
+                // Edge case handling, but likely not needed...
+                if (initialEnd > maxRange) { 
+                    console.log("initialEnd is greater than maxRange");
+                    initialEnd = maxRange;
+                    initialStart = Math.max(minRange, initialEnd - twentyPercent);
+                }
+
+                // Edge case handling, but likely not needed...
+                 if (initialStart >= initialEnd && totalRange > 0) { 
+                    console.log("initialStart is greater than initialEnd");
+                    initialStart = minRange;
+                    initialEnd = maxRange;
+                }
+            }
+
+            // Create Slider UI elements
+            const newSlider = noUiSlider.create(sliderElement, {
+                start: [initialStart, initialEnd], 
+                connect: true, step: 1,
+                range: { 'min': minRange, 'max': maxRange },
+                behaviour: 'drag-tap',
+                format: { to: v => Math.round(v), from: v => Number(v) }
+            });
+
+            // Update slider values and highlighted items
+            newSlider.on('update', (values) => {
+                document.getElementById(startDisplayId).textContent = formatTimestampForDisplay(values[0]);
+                document.getElementById(endDisplayId).textContent = formatTimestampForDisplay(values[1]);
+                updateMapHighlighting();
+                updateInExciseRangeStat();
+            });
+            
+            // Draw the stuck elements on the slider
+            const sliderBase = sliderElement.querySelector('.noUi-base');
+            if (sliderBase && originalData) { 
+                 drawStuckMeasurementHighlightsOnSlider(sliderBase, minRange, maxRange);
+            }
+
+            // Move slider elements in array
+            sliderInstances.push({ id: sliderId, slider: newSlider, container: sliderInstanceContainer, baseElement: sliderBase, removeButton: removeBtn });
+            
+            // Remove X button for sliders if only one slider
+            sliderInstances.forEach((inst) => {
+                if (sliderInstances.length === 1) {
+                    inst.removeButton.style.display = 'none';
+                } else {
+                    inst.removeButton.style.display = 'inline-block';
+                }
+            });
+            
+            // Show stuff as is?
+            if(originalData) { 
+                updateMapHighlighting(); 
+                updateInExciseRangeStat();
+            }
+        }
+        
+        // --- Map Display & Highlighting ---
+        // Set to blank and clear array
+        window.displayMeasurements = function(measurementsToDisplay) { 
+            leafletMarkers.forEach(m => m.remove()); 
+            leafletMarkers = []; 
+
+            // Set map when no measurements or measurements length is zero
+            if (!measurementsToDisplay || measurementsToDisplay.length === 0) {
+                // Todo: This error doesn't display since 0 measurements still returns processed.
+                showMessage('No measurements to display.', 'info');
+                // Not sure if we should change the map location at all...
+                if (map) map.setView([34.69983, 33.07571], 15); // Set for Radiacode HQ
+                // Should just pass as 0,0,0,0,0
+                updateStats(originalData ? originalData.measurements.length : 0, 0, parseInt(inExciseRangeCountEl.textContent || "0"), parseInt(removedCountEl.textContent || "0"), 0);
+                return;
+            }
+            const bounds = L.latLngBounds();
+            measurementsToDisplay.forEach(mData => {
+                if (mData.lat != null && mData.lon != null) {
+                    const latLng = [mData.lat, mData.lon];
+                    const mapMarker = L.circleMarker(latLng, { 
+                        measurementData: mData
+                    }); 
+                    let popupContent = `<b>Lat:</b> ${mData.lat.toFixed(6)}<br><b>Lon:</b> ${mData.lon.toFixed(6)}<br><b>Date:</b> ${formatTimestampForDisplay(mData.date)}`;
+                    if (mData.countRate != null) popupContent += `<br><b>Count Rate:</b> ${mData.countRate}`;
+                    if (mData.doseRate != null) popupContent += `<br><b>Dose Rate:</b> ${mData.doseRate}`;
+                    if (mData.isFlagged) popupContent += `<br><b style="color:red;">Flagged: Data potentially stuck</b>`;
+                    mapMarker.bindPopup(popupContent);
+                    mapMarker.addTo(map);
+                    leafletMarkers.push(mapMarker); 
+                    bounds.extend(latLng);
+                }
+            });
+            if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50] });
+            // Set the map to Radiacode HQ if any else
+            else map.setView([34.69983, 33.07571], 15); 
+            
+            // Update the map highlighting for no measurements
+            updateMapHighlighting();
+        }
+        // Add the markers to the map
+        window.updateMapHighlighting = function() { 
+            // Don't update if it's not original data
+            if (!originalData || !originalData.measurements || sliderInstances.length === 0) return; 
+            const activeRanges = sliderInstances.map(inst => inst.slider.get());
+
+            // Set markers
+            leafletMarkers.forEach(lMarker => {
+                const mData = lMarker.options.measurementData; 
+                const mTime = mData.date;
+                let isInAnyExcisionRange = false; // Sets marker to false at first.
+                for (const range of activeRanges) {
+                    if (mTime >= range[0] && mTime <= range[1]) {
+                        isInAnyExcisionRange = true;
+                        break;
+                    }
+                }
+                // Default marker style - is this not called somewhere else?
+                let styleOptions = {
+                    radius: 6, 
+                    weight: 1, 
+                    color: '#333', 
+                    opacity: 1,
+                    fillOpacity: 0.85
+                };
+                // Make the excision selection easier to see on map
+                if (isInAnyExcisionRange) {
+                    styleOptions.fillColor = '#AAAAAA';
+                    styleOptions.fillOpacity = 0.1;
+                    styleOptions.weight = 0.3;
+                } else {
+                    // Sets color by countRate
+                    // Todo: Allow to set by doseRate
+                    styleOptions.fillColor = getMeasurementColor(mData.countRate);
+                }
+                lMarker.setStyle(styleOptions);
+            });
+        }
+		
+        // Act on the markers in the slider selection
+        window.updateInExciseRangeStat = function() { 
+            if (!originalData || !originalData.measurements || sliderInstances.length === 0) {
+                inExciseRangeCountEl.textContent = 0;
+                return;
+            }
+            const activeRanges = sliderInstances.map(inst => inst.slider.get());
+            const uniqueMeasurementsInRanges = new Set();
+
+            // This handles the number of unique measurements in multiple time slider ranges
+            originalData.measurements.forEach(measurement => {
+                for (const range of activeRanges) {
+                    if (measurement.date >= range[0] && measurement.date <= range[1]) {
+                        uniqueMeasurementsInRanges.add(measurement.date + "_" + measurement.lat + "_" + measurement.lon + "_" + measurement.countRate);
+                        break;
+                    }
+                }
+            });
+            // Set the number of unique measurements in the data stats
+            inExciseRangeCountEl.textContent = uniqueMeasurementsInRanges.size;
+        }
+
+        // --- Data Excision ---
+        window.handleExciseData = function() { 
+            // Error handling
+            // Shouldn't ever run, I think.
+            // Todo: Remove this if not needed.
+            if (!originalData || !originalData.measurements || sliderInstances.length === 0) { 
+                showMessage('No data loaded.', 'error'); return;
+            }
+            // This also shouldn't ever run?
+            const activeRanges = sliderInstances.map(inst => inst.slider.get());
+            if (activeRanges.some(range => range[0] == null || range[1] == null || isNaN(range[0]) || isNaN(range[1]))) {
+                showMessage('Invalid slider time range detected.', 'error'); return;
+            }
+            
+            // Perform the excision
+            processedData = JSON.parse(JSON.stringify(originalData)); 
+            const countBeforeExcision = originalData.measurements.length;
+
+            processedData.measurements = originalData.measurements.filter(measurement => {
+                const measurementTime = measurement.date; 
+                for (const range of activeRanges) {
+                    if (measurementTime >= range[0] && measurementTime <= range[1]) {
+                        return false; 
+                    }
+                }
+                return true; 
+            });
+
+            const newMeasurementCount = processedData.measurements.length;
+            const removedInThisStep = countBeforeExcision - newMeasurementCount; 
+            const currentFlaggedCount = processedData.measurements.filter(m => m.isFlagged).length;
+
+            // Update after excision
+            showMessage(`Excised ${removedInThisStep} measurement(s). Displaying ${newMeasurementCount}.`, 'success');
+            displayMeasurements(processedData.measurements); 
+            updateMapHighlighting(); 
+            
+            updateStats(originalData.measurements.length, newMeasurementCount, 0, removedInThisStep, currentFlaggedCount); 
+            updateInExciseRangeStat(); 
+            prepareDownload(processedData); 
+            
+            // Show the download button
+            downloadLink.style.display = 'inline-block';
+        }
+
+        // --- Data Download ---
+        window.prepareDownload = function(dataToDownload) { 
+            const cleanData = JSON.parse(JSON.stringify(dataToDownload));
+            if (cleanData.measurements) { 
+                cleanData.measurements.forEach(m => delete m.isFlagged);
+                cleanData.markers = cleanData.measurements; 
+                delete cleanData.measurements;
+            } else if (cleanData.markers) { 
+                 cleanData.markers.forEach(m => delete m.isFlagged);
+            }
+
+            // Prepping to link to the download
+            const jsonDataStr = JSON.stringify(cleanData, null, 2); 
+            const blob = new Blob([jsonDataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            downloadLink.href = url;
+            
+            // Put the filename together
+            let baseName = 'data'; 
+            if (fileInput.files[0]) {
+                const currentFileName = fileInput.files[0].name;
+                const lastDotIndex = currentFileName.lastIndexOf('.');
+                if (lastDotIndex > 0) { 
+                    baseName = currentFileName.substring(0, lastDotIndex);
+                } else if (lastDotIndex === -1) { 
+                    baseName = currentFileName;
+                } else { 
+                    baseName = currentFileName; 
+                }
+            }
+            downloadLink.download = `${baseName}_modified.rctrk`;
+        }
+        
+        // --- UI Feedback (Inline Message Area) ---
+        window.showMessage = function(message, type = 'info') { 
+            messageArea.textContent = message;
+            // Reset classes first
+            messageArea.className = 'my-4 p-3 rounded-md text-center'; 
+            
+            if(message && message.length > 0) {
+                messageArea.classList.add('visible'); // Make visible if there's a message
+            } else {
+                messageArea.classList.remove('visible'); // Hide if no message
+                return; // No need to add type classes if hidden
+            }
+
+            if (type === 'success') {
+                messageArea.classList.add('message-success');
+            } else if (type === 'error') {
+                messageArea.classList.add('message-error');
+            } else { // info or default
+                messageArea.classList.add('message-info');
+            }
+        }
+
+        // Update the Data Stats.
+        window.updateStats = function(original, currentDisplayCount, inExciseRanges, removedLastOp, flaggedInCurrentView) { 
+            originalCountEl.textContent = original;
+            newCountEl.textContent = currentDisplayCount;
+            inExciseRangeCountEl.textContent = inExciseRanges;
+            removedCountEl.textContent = removedLastOp;
+            flaggedCountEl.textContent = flaggedInCurrentView;
+        }
+        // Update the data stas on load.
+        window.updateStatsOnLoad = function() {
+             if (!originalData) return;
+             const original = originalData.measurements.length;
+             const flagged = originalData.measurements.filter(m => m.isFlagged).length;
+             updateStats(original, original, 0, 0, flagged); 
+             updateInExciseRangeStat(); 
+        }
+        
+        // Everything should be loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.initMap(); 
+            
+            document.getElementById('fileInput').addEventListener('change', window.handleFileSelection);
+            document.getElementById('uploadButton').addEventListener('click', window.processAndLoadFile);
+            document.getElementById('exciseButton').addEventListener('click', window.handleExciseData);
+            document.getElementById('addRangeButton').addEventListener('click', window.addNewTimeRangeSlider);
+        });
+
+    </script>
+</body>
+</html>
